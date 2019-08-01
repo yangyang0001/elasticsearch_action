@@ -1,5 +1,6 @@
 package com.inspur;
 
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteResponse;
@@ -22,6 +23,12 @@ import org.elasticsearch.index.reindex.DeleteByQueryAction;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.filter.Filter;
+import org.elasticsearch.search.aggregations.bucket.filter.Filters;
+import org.elasticsearch.search.aggregations.bucket.filter.FiltersAggregator;
+import org.elasticsearch.search.aggregations.bucket.missing.Missing;
+import org.elasticsearch.search.aggregations.bucket.range.Range;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.avg.Avg;
 import org.elasticsearch.search.aggregations.metrics.cardinality.Cardinality;
 import org.elasticsearch.search.aggregations.metrics.max.Max;
@@ -43,7 +50,7 @@ import static org.junit.Assert.assertTrue;
  * Unit test for simple App.
  * 这里测试了集群的添加文档 和 查询文档的功能,其他都在单节点的上测试, 因为CPU 和 内存受不了
  */
-public class AppTest 
+public class AppTest
 {
     /**
      * Rigorous Test :-)
@@ -980,5 +987,236 @@ public class AppTest
         }
     }
 
+    /**
+     * 复杂的聚合操作
+     * 分组聚合操作 terms aggregation
+     */
+    @Test
+    public void testFuZaJuHeQuery() {
+        //指定ES集群
+        Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+        try {
+            //获取链接集群的客户端
+            TransportClient client = new PreBuiltTransportClient(settings)
+                    .addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
 
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+            AggregationBuilder aggregationBuilder = AggregationBuilders.terms("ageGroup").field("age");
+            SearchResponse response = client.prepareSearch("lib3")
+                    .addAggregation(aggregationBuilder)
+                    .execute()
+                    .actionGet();
+
+            Terms terms = response.getAggregations().get("ageGroup");
+            terms.getBuckets().forEach(bucket -> {
+                System.out.println(bucket.getKey() + " : " + bucket.getDocCount());
+            });
+
+            //关闭client端
+            client.close();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 过滤聚合 filter Aggregation
+     */
+    @Test
+    public void testFilterAggregation() {
+        //指定ES集群
+        Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+        try {
+            //获取链接集群的客户端
+            TransportClient client = new PreBuiltTransportClient(settings)
+                    .addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
+
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+
+            QueryBuilder queryBuilder = QueryBuilders.termQuery("age", "20");
+            AggregationBuilder aggregationBuilder = AggregationBuilders.filter("ageFilter", queryBuilder);
+
+            SearchResponse response = client.prepareSearch("lib3")
+                    .addAggregation(aggregationBuilder)
+                    .execute()
+                    .actionGet();
+
+            Filter filter = response.getAggregations().get("ageFilter");
+            System.out.println("年龄在20岁的人数一共:" + filter.getDocCount() + "个");
+            //关闭client端
+            client.close();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * filters 过滤 多个Key的 分组类似的
+     */
+    @Test
+    public void testFiltersAggregation() {
+        //指定ES集群
+        Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+        try {
+            //获取链接集群的客户端
+            TransportClient client = new PreBuiltTransportClient(settings)
+                    .addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
+
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+
+            AggregationBuilder aggregationBuilder = AggregationBuilders.filters("filters",
+                    new FiltersAggregator.KeyedFilter("chang ge", QueryBuilders.termQuery("interests", "chang")),
+                    new FiltersAggregator.KeyedFilter("he jiu", QueryBuilders.termQuery("interests", "he"))
+            );
+
+            SearchResponse response = client.prepareSearch("lib3")
+                    .addAggregation(aggregationBuilder)
+                    .execute()
+                    .actionGet();
+
+            Filters filters = response.getAggregations().get("filters");
+            filters.getBuckets().forEach(bucket -> {
+                System.out.println(bucket.getKey() + " : " + bucket.getDocCount());
+            });
+
+            //关闭client端
+            client.close();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Range Aggregation 范围聚合查询
+     */
+    @Test
+    public void testRangeAggregation () {
+        //指定ES集群
+        Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+        try {
+            //获取链接集群的客户端
+            TransportClient client = new PreBuiltTransportClient(settings)
+                    .addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
+
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+            //统计三个 范围的查询
+            AggregationBuilder aggregationBuilder = AggregationBuilders.range("range")
+                    .field("age")
+                    .addUnboundedTo(50)     //(, to)
+                    .addRange(25, 50)       //[from, to)
+                    .addUnboundedFrom(25);  //(from,  )
+
+            SearchResponse response = client.prepareSearch("lib3")
+                    .addAggregation(aggregationBuilder)
+                    .execute()
+                    .actionGet();
+
+            Range range = response.getAggregations().get("range");
+            range.getBuckets().forEach(bucket -> {
+                System.out.println(bucket.getKey() + " : " + bucket.getDocCount());
+            });
+
+            //关闭client端
+            client.close();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 查询 空字段的文档信息
+     * missing Query
+     */
+    @Test
+    public void testMissingQuery() {
+		//指定ES集群
+        Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+        try {
+            //获取链接集群的客户端
+            TransportClient client = new PreBuiltTransportClient(settings)
+                    .addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
+
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+			AggregationBuilder aggregationBuilder = AggregationBuilders.missing("missing").field("price");
+            SearchResponse response = client.prepareSearch("lib4")
+                    .addAggregation(aggregationBuilder)
+                    .execute()
+                    .actionGet();
+
+            Missing missing = response.getAggregations().get("missing");
+	        System.out.println(missing.getDocCount());
+
+            //关闭client端
+            client.close();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+	/**
+	 * 代码查看集群中状态的代码
+	 * cluster status
+	 */
+	@Test
+	public void testClusterHealth() {
+		//指定ES集群
+		Settings settings = Settings.builder().put("cluster.name", "elasticsearch").build();
+		try {
+			//获取链接集群的客户端
+			TransportClient client = new PreBuiltTransportClient(settings)
+					.addTransportAddress(new TransportAddress(InetAddress.getByName("192.168.120.181"), 9300));
+
+//                    .addTransportAddresses(
+//                            new TransportAddress(InetAddress.getByName("192.168.120.126"), 9300),
+//                            new TransportAddress(InetAddress.getByName("192.168.120.184"), 9300));
+
+			ClusterHealthResponse response = client.admin().cluster().prepareHealth().get();
+
+			System.out.println("clusterName  ----------------------->:" + response.getClusterName());
+			System.out.println("numberOfNodes ---------------------->:" + response.getNumberOfNodes());
+			System.out.println("numberOfDataNodes ------------------>:" + response.getNumberOfDataNodes());
+
+            System.out.println("**********************************************************************************");
+
+			response.getIndices().values().forEach(health -> {
+				System.out.println("index ----------------------->:" + health.getIndex());
+                System.out.println(health.getNumberOfShards());
+                System.out.println(health.getNumberOfReplicas());
+                System.out.println(health.getStatus().toString());
+				System.out.println("**********************************************************************************");
+			});
+
+			//关闭client端
+			client.close();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
 }

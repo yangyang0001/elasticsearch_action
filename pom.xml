@@ -19,10 +19,10 @@
     </properties>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch -->
+        <!-- 添加链接ElasticSearch的链接客户端 -->
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>transport</artifactId>
             <version>6.5.0</version>
         </dependency>
         <dependency>
